@@ -7,21 +7,55 @@
 const hre = require("hardhat");
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  const Entrypoint = await hre.ethers.getContractFactory("Entrypoint");
+  const Account = await hre.ethers.getContractFactory("Account");
+  const Test = await hre.ethers.getContractFactory("Test");
+  const NFT = await hre.ethers.getContractFactory("NFT");
 
-  const lockedAmount = hre.ethers.utils.parseEther("0.001");
+  const entrypoint = await Entrypoint.deploy();
+  const account = await Account.deploy();
+  const test = await Test.deploy();
+  const nft = await NFT.deploy();
 
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+  await entrypoint.deployed();
+  await account.deployed();
+  await test.deployed();
+  await nft.deployed();
 
-  await lock.deployed();
+  const [owner] = await hre.ethers.getSigners();
+  let tx = await owner.sendTransaction({
+    to: account.address,
+    value: hre.ethers.utils.parseEther('0.1'),
+    gasLimit: 1000000
+  });
 
-  console.log(
-    `Lock with ${ethers.utils.formatEther(
-      lockedAmount
-    )}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
-  );
+  await tx.wait();
+
+  // console.log(await hre.ethers.provider.getBalance(account.address))
+  // console.log(test.interface.encodeFunctionData('test', ['hello world!!!']))
+
+  tx = await entrypoint.handleOps({
+    sender: account.address,
+    contractAddress: nft.address,
+    nonce: 0,
+    value: 0,
+    callData: nft.interface.encodeFunctionData('mint', [account.address]),
+    signature: []
+  });
+  await tx.wait();
+
+  
+  tx = await entrypoint.handleOps({
+    sender: account.address,
+    contractAddress: nft.address,
+    nonce: 0,
+    value: 0,
+    callData: nft.interface.encodeFunctionData('mint', [account.address]),
+    signature: []
+  });
+  await tx.wait();
+
+  console.log(await nft.balanceOf(account.address))
 }
 
 // We recommend this pattern to be able to use async/await everywhere
